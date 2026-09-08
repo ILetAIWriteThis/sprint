@@ -1,0 +1,18 @@
+{
+  "name": "Book Sprint",
+  "short_name": "Sprint",
+  "description": "Plan a private reading and watching sprint. Your progress stays on this device.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1efe7",
+  "theme_color": "#17211c",
+  "orientation": "any",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
+
