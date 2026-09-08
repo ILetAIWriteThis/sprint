@@ -169,6 +169,8 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
   const books = items.filter((item) => item.category === 'book')
   const media = items.filter((item) => item.category !== 'book')
   const bookTotal = totalForCategory(items, 'book')
+  const planningDays = dueDate ? daysThroughDueDate(dueDate) : 0
+  const initialBookPace = planningDays ? bookTotal / planningDays : 0
   const target = bookTotal / 2
   const youtubeTotal = totalForCategory(items, 'youtube')
   const tvTotal = totalForCategory(items, 'tv')
@@ -225,6 +227,14 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
             <p className="section-intro">Add the book—or books—you want to finish. Reading time is estimated at two minutes per page.</p>
             <BookForm onAdd={(item) => setItems((current) => [...current, item])} />
             {books.length > 0 && <ItemList items={books} onRemove={remove} />}
+            <div className="pace-preview" aria-live="polite">
+              <span className="pace-preview__icon"><Icon name="calendar" size={19} /></span>
+              <span className="pace-preview__copy">
+                <small>Initial reading pace</small>
+                <strong>{dueDate && bookTotal ? formatDuration(initialBookPace) : '—'}</strong>
+              </span>
+              <span className="pace-preview__detail">{!dueDate ? 'Choose a due date' : !bookTotal ? 'Add a book' : `per day · ${planningDays} ${planningDays === 1 ? 'day' : 'days'}`}</span>
+            </div>
             {error && <p className="form-error" role="alert">{error}</p>}
             <div className="planner-actions planner-actions--end">
               <span>{books.length ? `${books.length} ${books.length === 1 ? 'book' : 'books'} · ${formatDuration(bookTotal)}` : 'No books added yet'}</span>

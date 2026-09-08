@@ -77,6 +77,12 @@ button { color: inherit; }
 .draft-list__copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 2px; }
 .draft-list__copy strong { overflow: hidden; font-size: .84rem; text-overflow: ellipsis; white-space: nowrap; }
 .draft-list__copy small { color: var(--muted); font-size: .69rem; }
+.pace-preview { margin-top: 15px; padding: 13px 15px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; color: #31411f; background: rgba(201, 239, 114, .27); border: 1px solid #bed67a; border-radius: 14px; }
+.pace-preview__icon { width: 36px; height: 36px; display: grid; place-items: center; background: var(--lime); border-radius: 10px; }
+.pace-preview__copy { display: flex; flex-direction: column; }
+.pace-preview__copy small { color: #59634f; font-size: .62rem; font-weight: 750; }
+.pace-preview__copy strong { font-family: Georgia, "Times New Roman", serif; font-size: 1.45rem; font-weight: 500; letter-spacing: -.03em; }
+.pace-preview__detail { color: #59634f; font-size: .67rem; font-weight: 750; }
 .text-button { padding: 4px; color: #4e5b53; background: transparent; border: 0; font-size: .73rem; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .text-button--danger { color: #9e493b; }
 .form-error { margin: 14px 0 0; padding: 10px 12px; color: #8d352b; background: #fae9e4; border-radius: 9px; font-size: .76rem; }

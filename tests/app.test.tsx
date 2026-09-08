@@ -24,6 +24,8 @@ describe('Book Sprint UI', () => {
     await user.type(screen.getByLabelText('Pages'), '60')
     await user.click(screen.getByRole('button', { name: 'Add book' }))
     expect(screen.getByText(/60 pages · 2 hr/)).toBeInTheDocument()
+    expect(screen.getByText('Initial reading pace')).toBeInTheDocument()
+    expect(screen.getByText(/per day ·/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Balance the sprint/ }))
 
     await user.type(screen.getByLabelText('Title'), 'Good videos')
