@@ -27,11 +27,16 @@ describe('Book Sprint UI', () => {
     await user.click(screen.getByRole('button', { name: /Balance the sprint/ }))
 
     await user.type(screen.getByLabelText('Title'), 'Good videos')
-    await user.type(screen.getByLabelText('Hours'), '1')
+    await user.type(screen.getByLabelText('Minutes'), '30')
     await user.click(screen.getByRole('button', { name: 'Add to sprint' }))
     await user.click(screen.getByLabelText('TV & film'))
+    await user.type(screen.getByLabelText('Title'), 'Too much TV')
+    await user.type(screen.getByLabelText('Hours'), '2')
+    await user.click(screen.getByRole('button', { name: 'Add to sprint' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Only 1 hr 30 min of media time remains')
+
     await user.type(screen.getByLabelText('Title'), 'A good film')
-    await user.type(screen.getByLabelText('Hours'), '1')
+    await user.type(screen.getByLabelText('Minutes'), '30')
     await user.click(screen.getByRole('button', { name: 'Add to sprint' }))
 
     await user.click(screen.getByRole('button', { name: /Start sprint/ }))

@@ -1,6 +1,6 @@
 # Book Sprint
 
-A private, installable PWA for balancing a reading sprint with YouTube and TV/film. Book duration is estimated at two minutes per page; YouTube and TV targets are each half of the planned book time.
+A private, installable PWA for balancing a reading sprint with YouTube and TV/film. Book duration is estimated at two minutes per page; YouTube and TV share a media allowance that never exceeds the planned reading time.
 
 ## How it works
 

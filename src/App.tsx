@@ -148,12 +148,15 @@ function MediaForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
 
 function BalanceMeter({ category, total, target }: { category: Category; total: number; target: number }) {
   const percentage = target ? Math.min(100, Math.round(total / target * 100)) : 0
-  const met = total >= target
+  const atTarget = total === target
+  const overTarget = total > target
   return (
-    <div className={`balance-meter balance-meter--${category} ${met ? 'is-met' : ''}`}>
+    <div className={`balance-meter balance-meter--${category} ${atTarget ? 'is-met' : ''}`}>
       <div className="balance-meter__top"><span><Icon name={category} size={18} /> {CATEGORY_META[category].label}</span><strong>{formatDuration(total)}</strong></div>
       <div className="meter-track"><span style={{ width: `${percentage}%` }} /></div>
-      <small>{met ? <><Icon name="check" size={14} /> Target reached</> : `${formatDuration(target - total)} to add`}</small>
+      <small>{atTarget
+        ? <><Icon name="check" size={14} /> At the balance point</>
+        : overTarget ? `${formatDuration(total - target)} over half` : `${formatDuration(target - total)} below half`}</small>
     </div>
   )
 }
@@ -169,9 +172,23 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
   const target = bookTotal / 2
   const youtubeTotal = totalForCategory(items, 'youtube')
   const tvTotal = totalForCategory(items, 'tv')
-  const ready = target > 0 && youtubeTotal >= target && tvTotal >= target
+  const mediaTotal = youtubeTotal + tvTotal
+  const allowance = bookTotal - mediaTotal
+  const overLimit = allowance < 0
+  const ready = target > 0 && youtubeTotal > 0 && tvTotal > 0 && !overLimit
 
-  const remove = (id: string) => setItems((current) => current.filter((item) => item.id !== id))
+  const remove = (id: string) => {
+    setItems((current) => current.filter((item) => item.id !== id))
+    setError('')
+  }
+  const addMedia = (item: SprintItem) => {
+    if (item.totalMinutes > Math.max(0, allowance)) {
+      setError(`That would put watching above reading. Only ${formatDuration(Math.max(0, allowance))} of media time remains.`)
+      return
+    }
+    setError('')
+    setItems((current) => [...current, item])
+  }
   const continuePlanning = () => {
     if (!dueDate) return setError('Choose a due date for this sprint.')
     if (dueDate < localDateInputValue()) return setError('The due date cannot be in the past.')
@@ -220,15 +237,20 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
               <div><p className="eyebrow">Step two</p><h2 id="planner-title">Make it 50 / 50</h2></div>
               <button className="text-button" type="button" onClick={() => setStep(1)}>Back to books</button>
             </div>
-            <p className="section-intro">Your books total <strong>{formatDuration(bookTotal)}</strong>. Aim for about half that time in YouTube and half in TV or film.</p>
+            <p className="section-intro">Your books total <strong>{formatDuration(bookTotal)}</strong>. YouTube and TV share that allowance, so watching can never exceed reading. Half each is a guide, not a requirement.</p>
             <div className="balance-grid">
               <BalanceMeter category="youtube" total={youtubeTotal} target={target} />
               <BalanceMeter category="tv" total={tvTotal} target={target} />
             </div>
-            <MediaForm onAdd={(item) => setItems((current) => [...current, item])} />
+            <MediaForm onAdd={addMedia} />
+            {error && <p className="form-error" role="alert">{error}</p>}
             {media.length > 0 && <ItemList items={media} onRemove={remove} />}
             <div className="planner-actions">
-              <span>{ready ? 'Your sprint is balanced and ready.' : 'Reach both targets to begin.'}</span>
+              <span>{overLimit
+                ? `Remove ${formatDuration(Math.abs(allowance))} of media to keep reading first.`
+                : ready
+                  ? `${formatDuration(allowance)} of optional media space remains. You can begin now.`
+                  : 'Add at least one YouTube and one TV item. Their combined time must stay below reading.'}</span>
               <button className="primary-button" type="button" disabled={!ready || saving} onClick={start}>{saving ? 'Saving…' : 'Start sprint'} <Icon name="arrow" /></button>
             </div>
           </>
