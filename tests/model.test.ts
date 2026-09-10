@@ -1,4 +1,5 @@
 import {
+  archiveCompletedSprint,
   daysThroughDueDate,
   formatDuration,
   minutesForPages,
@@ -40,7 +41,7 @@ describe('sprint calculations', () => {
 })
 
 describe('sprint completion', () => {
-  it('archives only after every item is complete and retains the newest five', () => {
+  it('keeps completed items active until the user archives and retains the newest five', () => {
     const oldArchives: ArchivedSprint[] = Array.from({ length: 5 }, (_, index) => ({
       id: `old-${index}`,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -63,11 +64,18 @@ describe('sprint completion', () => {
     const stillActive = updateItemProgress(data, 'book', 99)
     expect(stillActive.active).not.toBeNull()
 
-    const finished = updateItemProgress(data, 'book', 100, '2026-09-08T18:00:00.000Z')
+    const completed = updateItemProgress(data, 'book', 100)
+    expect(completed.active).not.toBeNull()
+    expect(completed.active?.items[0]).toMatchObject({ progress: 100, progressBeforeCompletion: 99 })
+
+    const restored = updateItemProgress(completed, 'book', 99)
+    expect(restored.active?.items[0].progress).toBe(99)
+    expect(restored.active?.items[0]).not.toHaveProperty('progressBeforeCompletion')
+
+    const finished = archiveCompletedSprint(completed, '2026-09-08T18:00:00.000Z')
     expect(finished.active).toBeNull()
     expect(finished.archived).toHaveLength(5)
     expect(finished.archived[0].id).toBe('active')
     expect(finished.archived.some((sprint) => sprint.id === 'old-0')).toBe(false)
   })
 })
-

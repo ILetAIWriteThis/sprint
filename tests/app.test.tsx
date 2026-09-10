@@ -70,4 +70,52 @@ describe('Book Sprint UI', () => {
     await waitFor(() => expect(memory.read().active?.items[0].progress).toBe(40))
     expect(within(item).getByText('2 hr remaining')).toBeInTheDocument()
   })
+
+  it('moves completed items to the bottom and can restore their previous progress', async () => {
+    const user = userEvent.setup()
+    const memory = memoryRepository({
+      active: {
+        id: 'sprint', createdAt: '2026-09-01T00:00:00.000Z', dueDate: '2099-09-30', status: 'active',
+        items: [
+          { id: 'book', category: 'book', title: 'A Great Book', pages: 100, totalMinutes: 200, progress: 40 },
+          { id: 'youtube', category: 'youtube', title: 'Videos', totalMinutes: 100, progress: 0 },
+        ],
+      },
+      archived: [],
+    })
+    render(<App repository={memory.repository} />)
+
+    const input = await screen.findByLabelText('Progress for A Great Book')
+    await user.click(within(input.closest('article')!).getByRole('button', { name: 'Complete' }))
+
+    await waitFor(() => expect(memory.read().active?.items[0].progress).toBe(100))
+    expect(screen.queryByLabelText('Progress for A Great Book')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Completed items' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Undo completion for A Great Book' }))
+    await waitFor(() => expect(memory.read().active?.items[0].progress).toBe(40))
+    expect(screen.getByLabelText('Progress for A Great Book')).toBeInTheDocument()
+  })
+
+  it('suggests titles already added while planning', async () => {
+    const user = userEvent.setup()
+    const memory = memoryRepository({ active: null, archived: [] })
+    render(<App repository={memory.repository} />)
+
+    await screen.findByRole('heading', { name: /balanced sprint/i })
+    await user.type(screen.getByLabelText('Due date'), '2099-09-30')
+    await user.type(screen.getByLabelText('Book title'), 'A Great Book')
+    await user.type(screen.getByLabelText('Pages'), '60')
+    await user.click(screen.getByRole('button', { name: 'Add book' }))
+    await user.click(screen.getByRole('button', { name: /Balance the sprint/ }))
+
+    const title = screen.getByLabelText('Title')
+    await user.type(title, 'Veritasium')
+    await user.type(screen.getByLabelText('Minutes'), '20')
+    await user.click(screen.getByRole('button', { name: 'Add to sprint' }))
+    await user.type(title, 'Ver')
+
+    expect(title).toHaveAttribute('list', 'media-title-suggestions')
+    expect(document.querySelector('#media-title-suggestions option[value="Veritasium"]')).toBeInTheDocument()
+  })
 })

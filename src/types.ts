@@ -6,6 +6,7 @@ export interface SprintItem {
   title: string
   totalMinutes: number
   progress: number
+  progressBeforeCompletion?: number
   pages?: number
 }
 
@@ -35,4 +36,3 @@ export interface SprintRepository {
   load: () => Promise<SprintData>
   save: (data: SprintData) => Promise<void>
 }
-

@@ -69,13 +69,27 @@ export function isPastDue(dueDate: string, today = new Date()) {
   return dueDateAsUtcDay(dueDate) < dateAsUtcDay(today)
 }
 
-export function updateItemProgress(data: SprintData, itemId: string, progress: number, completedAt = new Date().toISOString()): SprintData {
+export function updateItemProgress(data: SprintData, itemId: string, progress: number): SprintData {
   if (!data.active) return data
   const normalized = Math.min(100, Math.max(0, Math.round(progress)))
-  const items = data.active.items.map((item) => item.id === itemId ? { ...item, progress: normalized } : item)
-  const active: ActiveSprint = { ...data.active, items }
-  if (!items.every((item) => item.progress === 100)) return { ...data, active }
+  const items = data.active.items.map((item) => {
+    if (item.id !== itemId) return item
+    if (normalized === 100) {
+      return {
+        ...item,
+        progress: normalized,
+        progressBeforeCompletion: item.progress === 100 ? item.progressBeforeCompletion : item.progress,
+      }
+    }
+    const { progressBeforeCompletion: _previousProgress, ...rest } = item
+    return { ...rest, progress: normalized }
+  })
+  return { ...data, active: { ...data.active, items } }
+}
 
+export function archiveCompletedSprint(data: SprintData, completedAt = new Date().toISOString()): SprintData {
+  if (!data.active || !data.active.items.length || !data.active.items.every((item) => item.progress === 100)) return data
+  const active = data.active
   const archived: ArchivedSprint = { ...active, status: 'archived', completedAt }
   return {
     active: null,
@@ -88,4 +102,3 @@ export function updateItemProgress(data: SprintData, itemId: string, progress: n
 export function createSprint(dueDate: string, items: SprintItem[], createdAt = new Date().toISOString()): ActiveSprint {
   return { id: makeId('sprint'), createdAt, dueDate, status: 'active', items }
 }
-

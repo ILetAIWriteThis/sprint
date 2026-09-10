@@ -2,6 +2,7 @@ import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from
 import {
   CATEGORIES,
   CATEGORY_META,
+  archiveCompletedSprint,
   createSprint,
   daysThroughDueDate,
   formatDuration,
@@ -85,7 +86,7 @@ function ItemList({ items, onRemove }: { items: SprintItem[]; onRemove: (id: str
   )
 }
 
-function BookForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
+function BookForm({ onAdd, suggestions }: { onAdd: (item: SprintItem) => void; suggestions: string[] }) {
   const [title, setTitle] = useState('')
   const [pages, setPages] = useState('')
   const numericPages = Number(pages)
@@ -101,7 +102,8 @@ function BookForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
 
   return (
     <form className="add-form" onSubmit={submit}>
-      <label className="field field--wide"><span>Book title</span><input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What do you want to read?" /></label>
+      <label className="field field--wide"><span>Book title</span><input required list="book-title-suggestions" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What do you want to read?" /></label>
+      <datalist id="book-title-suggestions">{suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>
       <label className="field"><span>Pages</span><input required type="number" min="1" step="1" inputMode="numeric" value={pages} onChange={(event) => setPages(event.target.value)} placeholder="320" /></label>
       <div className="duration-preview"><span>Reading time</span><strong>{duration ? formatDuration(duration) : '—'}</strong><small>2 min per page</small></div>
       <button className="add-button" type="submit">Add book</button>
@@ -109,7 +111,7 @@ function BookForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
   )
 }
 
-function MediaForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
+function MediaForm({ onAdd, suggestions }: { onAdd: (item: SprintItem) => void; suggestions: (category: Category) => string[] }) {
   const [category, setCategory] = useState<Category>('youtube')
   const [title, setTitle] = useState('')
   const [hours, setHours] = useState('')
@@ -136,7 +138,8 @@ function MediaForm({ onAdd }: { onAdd: (item: SprintItem) => void }) {
           </label>
         ))}
       </fieldset>
-      <label className="field field--wide"><span>Title</span><input required value={title} onChange={(event) => setTitle(event.target.value)} placeholder={category === 'youtube' ? 'Video or playlist' : 'Series, season, or film'} /></label>
+      <label className="field field--wide"><span>Title</span><input required list="media-title-suggestions" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={category === 'youtube' ? 'Video or playlist' : 'Series, season, or film'} /></label>
+      <datalist id="media-title-suggestions">{suggestions(category).map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>
       <div className="duration-fields">
         <label className="field"><span>Hours</span><input type="number" min="0" step="1" inputMode="numeric" value={hours} onChange={(event) => setHours(event.target.value)} placeholder="1" /></label>
         <label className="field"><span>Minutes</span><input type="number" min="0" max="59" step="1" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} placeholder="30" /></label>
@@ -161,7 +164,19 @@ function BalanceMeter({ category, total, target }: { category: Category; total: 
   )
 }
 
-function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promise<void>; saving: boolean }) {
+function uniqueTitles(items: SprintItem[], category: Category) {
+  const seen = new Set<string>()
+  return items.reduce<string[]>((titles, item) => {
+    const normalized = item.title.trim().toLocaleLowerCase()
+    if (item.category === category && normalized && !seen.has(normalized)) {
+      seen.add(normalized)
+      titles.push(item.title)
+    }
+    return titles
+  }, [])
+}
+
+function Planner({ onStart, saving, suggestedItems }: { onStart: (sprint: ActiveSprint) => Promise<void>; saving: boolean; suggestedItems: SprintItem[] }) {
   const [step, setStep] = useState<1 | 2>(1)
   const [dueDate, setDueDate] = useState('')
   const [items, setItems] = useState<SprintItem[]>([])
@@ -178,6 +193,7 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
   const allowance = bookTotal - mediaTotal
   const overLimit = allowance < 0
   const ready = target > 0 && youtubeTotal > 0 && tvTotal > 0 && !overLimit
+  const autocompleteItems = [...items, ...suggestedItems]
 
   const remove = (id: string) => {
     setItems((current) => current.filter((item) => item.id !== id))
@@ -225,7 +241,7 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
               <label className="due-field"><span><Icon name="calendar" size={17} /> Due date</span><input aria-label="Due date" type="date" min={localDateInputValue()} value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
             </div>
             <p className="section-intro">Add the book—or books—you want to finish. Reading time is estimated at two minutes per page.</p>
-            <BookForm onAdd={(item) => setItems((current) => [...current, item])} />
+            <BookForm onAdd={(item) => setItems((current) => [...current, item])} suggestions={uniqueTitles(autocompleteItems, 'book')} />
             {books.length > 0 && <ItemList items={books} onRemove={remove} />}
             <div className="pace-preview" aria-live="polite">
               <span className="pace-preview__icon"><Icon name="calendar" size={19} /></span>
@@ -252,7 +268,7 @@ function Planner({ onStart, saving }: { onStart: (sprint: ActiveSprint) => Promi
               <BalanceMeter category="youtube" total={youtubeTotal} target={target} />
               <BalanceMeter category="tv" total={tvTotal} target={target} />
             </div>
-            <MediaForm onAdd={addMedia} />
+            <MediaForm onAdd={addMedia} suggestions={(category) => uniqueTitles(autocompleteItems, category)} />
             {error && <p className="form-error" role="alert">{error}</p>}
             {media.length > 0 && <ItemList items={media} onRemove={remove} />}
             <div className="planner-actions">
@@ -303,11 +319,14 @@ function ProgressControl({ item, onSave, saving }: { item: SprintItem; onSave: (
   )
 }
 
-function ActiveDashboard({ sprint, today, onProgress, saving }: { sprint: ActiveSprint; today: Date; onProgress: (itemId: string, progress: number) => Promise<void>; saving: boolean }) {
+function ActiveDashboard({ sprint, today, onProgress, onArchive, saving }: { sprint: ActiveSprint; today: Date; onProgress: (itemId: string, progress: number) => Promise<void>; onArchive: () => Promise<void>; saving: boolean }) {
   const days = daysThroughDueDate(sprint.dueDate, today)
   const overall = progressForItems(sprint.items)
   const overdue = isPastDue(sprint.dueDate, today)
   const circleStyle = { '--progress': `${overall * 3.6}deg` } as CSSProperties
+  const remainingItems = sprint.items.filter((item) => item.progress < 100)
+  const completedItems = sprint.items.filter((item) => item.progress === 100)
+  const allComplete = remainingItems.length === 0
 
   return (
     <main id="main-content" className="dashboard" tabIndex={-1}>
@@ -326,9 +345,10 @@ function ActiveDashboard({ sprint, today, onProgress, saving }: { sprint: Active
       </section>
 
       <section className="progress-section" aria-labelledby="progress-heading">
-        <div className="today-heading"><div><p className="eyebrow">Quick update</p><h2 id="progress-heading">Log your progress</h2></div><p>Enter the current total percentage—not what you did today.</p></div>
+        <div className="today-heading"><div><p className="eyebrow">Quick update</p><h2 id="progress-heading">Items to finish</h2></div><p>Enter the current total percentage—not what you did today.</p></div>
         {CATEGORIES.map((category) => {
-          const categoryItems = sprint.items.filter((item) => item.category === category)
+          const categoryItems = remainingItems.filter((item) => item.category === category)
+          if (!categoryItems.length) return null
           return (
             <div className="category-group" key={category}>
               <h3><span className={`item-icon item-icon--${category}`}><Icon name={category} /></span>{CATEGORY_META[category].label}</h3>
@@ -343,7 +363,23 @@ function ActiveDashboard({ sprint, today, onProgress, saving }: { sprint: Active
             </div>
           )
         })}
-        <p className="finish-note"><Icon name="archive" size={17} /> The sprint archives automatically when every item is complete.</p>
+        {allComplete && <p className="all-complete-note"><Icon name="spark" size={18} /> Everything is complete. Check the list below, then archive this sprint when you’re ready.</p>}
+        {completedItems.length > 0 && (
+          <section className="completed-items" aria-labelledby="completed-heading">
+            <div className="completed-items__heading"><h3 id="completed-heading"><span className="archive-check"><Icon name="check" size={17} /></span>Completed items</h3><span>{completedItems.length}</span></div>
+            <div className="completed-items__list">
+              {completedItems.map((item) => (
+                <article className="completed-item" key={item.id}>
+                  <div className="active-item__copy"><strong>{item.title}</strong><span>{CATEGORY_META[item.category].shortLabel} · {item.pages ? `${item.pages} pages · ` : ''}{formatDuration(item.totalMinutes)}</span></div>
+                  <button className="undo-complete" type="button" disabled={saving} onClick={() => onProgress(item.id, item.progressBeforeCompletion ?? 0)} aria-label={`Undo completion for ${item.title}`}>Undo completion</button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+        {allComplete
+          ? <div className="archive-sprint-action"><span>Your completed items remain editable until you archive.</span><button className="primary-button" type="button" disabled={saving} onClick={onArchive}><Icon name="archive" size={17} /> {saving ? 'Archiving…' : 'Archive sprint'}</button></div>
+          : <p className="finish-note"><Icon name="archive" size={17} /> Completed items move below and can be restored if needed.</p>}
       </section>
     </main>
   )
@@ -407,11 +443,21 @@ export function App({ repository: providedRepository }: AppProps) {
 
   const saveProgress = async (itemId: string, progress: number) => {
     if (!data) return
+    const item = data.active?.items.find((candidate) => candidate.id === itemId)
     const next = updateItemProgress(data, itemId, progress)
-    const completed = Boolean(data.active && !next.active)
     await persist(next)
-    setMessage(completed ? 'Sprint complete — nicely done. It is now in your recent sprints.' : 'Progress saved. Today’s pace has been recalculated.')
-    if (completed) window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (progress === 100) setMessage('Item completed and moved to the completed list below.')
+    else if (item?.progress === 100) setMessage('Item restored to your list of things to finish.')
+    else setMessage('Progress saved. Today’s pace has been recalculated.')
+  }
+
+  const archiveSprint = async () => {
+    if (!data) return
+    const next = archiveCompletedSprint(data)
+    if (next === data) return
+    await persist(next)
+    setMessage('Sprint complete — nicely done. It is now in your recent sprints.')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const install = pwa.install ? async () => { await pwa.install?.prompt() } : undefined
@@ -425,8 +471,8 @@ export function App({ repository: providedRepository }: AppProps) {
       {!data && !error && <main id="main-content" className="loading"><span className="loader" /><p>Opening your sprint…</p></main>}
       {!data && error && <main id="main-content" className="loading"><Icon name="lock" size={34} /><h1>Local storage couldn’t open</h1><p>Your browser may be blocking IndexedDB. Allow site storage and reload to use Book Sprint.</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></main>}
       {data && (data.active
-        ? <ActiveDashboard sprint={data.active} today={new Date()} onProgress={saveProgress} saving={saving} />
-        : <Planner onStart={startSprint} saving={saving} />)}
+        ? <ActiveDashboard sprint={data.active} today={new Date()} onProgress={saveProgress} onArchive={archiveSprint} saving={saving} />
+        : <Planner onStart={startSprint} saving={saving} suggestedItems={data.archived.flatMap((sprint) => sprint.items)} />)}
       {data && <ArchiveList sprints={data.archived} />}
       <footer><span>Book Sprint</span><span><Icon name="lock" size={13} /> No login. No tracking. Local data only.</span></footer>
       {!pwa.online && <div className="offline-notice" role="status">Offline — your sprint still works.</div>}
